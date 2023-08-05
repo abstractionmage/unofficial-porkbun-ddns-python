@@ -1,7 +1,25 @@
+import os
 import json
-import requests
-import re
 import sys
+import requests
+import socket
+import argparse
+
+parser = argparse.ArgumentParser(
+                    prog='Improved Porkbun DDNS Python Script',
+                    description='Fork of Porkbun\'s deprecated Python DDNS Client which only re-creates the DNS record if your IP address has actually changed.'                    
+		)
+parser.add_argument('root_domain', help="root domain whose DNS record you would like to update")
+parser.add_argument("-s", "--subdomain", required=False, help="you can optionally specify a subdomain to be updated")
+parser.add_argument("-w", "--wildcard", required=False, action='store_true', help="flag to create/update a corresponding wildcard DNS record on the specified domain. The same as specifying --subdomain \"*\"")
+parser.add_argument("-i", "--ip", required=False, help= "manually specify your IP address. Otherwise, your IP address will automatically be fetched from Porkbun.")
+parser.add_argument("-c", "--cache-ip", required=False, action='store_true', help="only update any DNS records if your IP address has changed")
+
+arguments = parser.parse_args()
+
+scriptPath = os.path.dirname(os.path.abspath(__file__))
+cachedIpFilePath = os.path.join(scriptPath, "ip.txt")
+
 
 def getRecords(domain): #grab all the records so we know which ones to delete to make room for our record. Also checks to make sure we've got the right domain
 	allRecords=json.loads(requests.post(apiConfig["endpoint"] + '/dns/retrieve/' + domain, data = json.dumps(apiConfig)).text)
@@ -9,45 +27,57 @@ def getRecords(domain): #grab all the records so we know which ones to delete to
 		print('Error getting domain. Check to make sure you specified the correct domain, and that API access has been switched on for this domain.');
 		sys.exit();
 	return(allRecords)
+
 	
 def getMyIP():
 	ping = json.loads(requests.post(apiConfig["endpoint"] + '/ping/', data = json.dumps(apiConfig)).text)
-	return(ping["yourIp"])
+	try:
+		ip = ping["yourIp"]
+		cacheMyIP(ip)
+		return ip
+	except KeyError:
+		raise Exception(str(ping))
 
-def deleteRecord():
+
+def cacheMyIP(myIP):
+	file = open(cachedIpFilePath, "w")
+	file.write(myIP)
+	file.close
+
+
+def hasMyIpChanged(myIP) -> bool:
+	try:
+		file = open(cachedIpFilePath, "r")
+		previousIp = file.read()
+		file.close()
+		return myIP != previousIp
+	except FileNotFoundError:
+		return True
+	
+
+def deleteRecords(rootDomain):
 	for i in getRecords(rootDomain)["records"]:
-		if i["name"]==fqdn and (i["type"] == 'A' or i["type"] == 'ALIAS' or i["type"] == 'CNAME'):
+		if i["name"]==rootDomain and (i["type"] == 'A' or i["type"] == 'ALIAS' or i["type"] == 'CNAME'):
 			print("Deleting existing " + i["type"] + " Record")
-			deleteRecord = json.loads(requests.post(apiConfig["endpoint"] + '/dns/delete/' + rootDomain + '/' + i["id"], data = json.dumps(apiConfig)).text)
+			requests.post(apiConfig["endpoint"] + '/dns/delete/' + rootDomain + '/' + i["id"], data = json.dumps(apiConfig))
 
-def createRecord():
+
+def createRecord(rootDomain, subDomain, myIP):
 	createObj=apiConfig.copy()
 	createObj.update({'name': subDomain, 'type': 'A', 'content': myIP, 'ttl': 300})
-	endpoint = apiConfig["endpoint"] + '/dns/create/' + rootDomain
-	print("Creating record: " + fqdn + " with answer of " + myIP)
+	print("Creating record: " + rootDomain + " with answer of " + myIP)
 	create = json.loads(requests.post(apiConfig["endpoint"] + '/dns/create/'+ rootDomain, data = json.dumps(createObj)).text)
 	return(create)
 
-if len(sys.argv)>2: #at least the config and root domain is specified
-	apiConfig = json.load(open(sys.argv[1])) #load the config file into a variable
-	rootDomain=sys.argv[2].lower()
-		
-	if len(sys.argv)>3 and sys.argv[3]!='-i': #check if a subdomain was specified as the third argument
-		subDomain=sys.argv[3].lower()
-		fqdn=subDomain + "." + rootDomain
-	else:
-		subDomain=''
-		fqdn=rootDomain
 
-	if len(sys.argv)>4 and sys.argv[3]=='-i': #check if IP is manually specified. There's probably a more-elegant way to do this
-		myIP=sys.argv[4]
-	elif len(sys.argv)>5 and sys.argv[4]=='-i':
-		myIP=sys.argv[5]
-	else:
-		myIP=getMyIP() #otherwise use the detected exterior IP address
-	
-	deleteRecord()
-	print(createRecord()["status"])
-	
+apiConfig = json.load(open(os.path.join(scriptPath, "config.json")))
+myIP = arguments.ip if arguments.ip else getMyIP()
+rootDomain = arguments.root_domain
+subdomain = "*" if arguments.wildcard else arguments.subdomain
+
+if (not arguments.cache_ip or hasMyIpChanged(myIP)):
+	deleteRecords(rootDomain)
+	record = createRecord(rootDomain, subdomain, myIP)
+	print(record["status"])
 else:
-	print("Porkbun Dynamic DNS client, Python Edition\n\nError: not enough arguments. Examples:\npython porkbun-ddns.py /path/to/config.json example.com\npython porkbun-ddns.py /path/to/config.json example.com www\npython porkbun-ddns.py /path/to/config.json example.com '*'\npython porkbun-ddns.py /path/to/config.json example.com -i 10.0.0.1\n")
+	print("This domain still points to your current IP address. No need to update its DNS records.")
