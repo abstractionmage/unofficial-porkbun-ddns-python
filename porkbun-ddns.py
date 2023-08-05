@@ -78,6 +78,6 @@ subdomain = "*" if arguments.wildcard else arguments.subdomain
 if (not arguments.cache_ip or hasMyIpChanged(myIP)):
 	deleteRecords(rootDomain)
 	record = createRecord(rootDomain, subdomain, myIP)
-	print(record["status"])
+	print(str(record))
 else:
-	print("Your IP address hasn't changed. No need to update its DNS records.")
+	print(f"Your IP address hasn't changed, it's still {myIP}. No need to update its DNS records.")
