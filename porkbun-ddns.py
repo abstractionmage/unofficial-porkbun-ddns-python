@@ -80,4 +80,4 @@ if (not arguments.cache_ip or hasMyIpChanged(myIP)):
 	record = createRecord(rootDomain, subdomain, myIP)
 	print(record["status"])
 else:
-	print("This domain still points to your current IP address. No need to update its DNS records.")
+	print("Your IP address hasn't changed. No need to update its DNS records.")
