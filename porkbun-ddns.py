@@ -33,7 +33,6 @@ def getMyIP():
 	ping = json.loads(requests.post(apiConfig["endpoint"] + '/ping/', data = json.dumps(apiConfig)).text)
 	try:
 		ip = ping["yourIp"]
-		cacheMyIP(ip)
 		return ip
 	except KeyError:
 		raise Exception(str(ping))
@@ -56,16 +55,16 @@ def hasMyIpChanged(myIP) -> bool:
 	
 
 def deleteRecords(rootDomain):
-	for i in getRecords(rootDomain)["records"]:
-		if i["name"]==rootDomain and (i["type"] == 'A' or i["type"] == 'ALIAS' or i["type"] == 'CNAME'):
-			print("Deleting existing " + i["type"] + " Record")
-			requests.post(apiConfig["endpoint"] + '/dns/delete/' + rootDomain + '/' + i["id"], data = json.dumps(apiConfig))
+	for record in getRecords(rootDomain)["records"]:
+		if rootDomain in record["name"] and (record["type"] == 'A' or record["type"] == 'ALIAS' or record["type"] == 'CNAME'):
+			print("Deleting existing " + record["type"] + " Record for " + record["name"])
+			requests.post(apiConfig["endpoint"] + '/dns/delete/' + rootDomain + '/' + record["id"], data = json.dumps(apiConfig))
 
 
 def createRecord(rootDomain, subDomain, myIP):
 	createObj=apiConfig.copy()
 	createObj.update({'name': subDomain, 'type': 'A', 'content': myIP, 'ttl': 300})
-	print("Creating record: " + rootDomain + " with answer of " + myIP)
+	print("Creating record: " + ((subDomain + ".") if subDomain else "") + rootDomain + " with answer of " + myIP)
 	create = json.loads(requests.post(apiConfig["endpoint"] + '/dns/create/'+ rootDomain, data = json.dumps(createObj)).text)
 	return(create)
 
