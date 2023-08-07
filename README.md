@@ -22,11 +22,7 @@ Detect my external IP address and create/update a corresponding DNS record on th
 #### Subdomain
 Detect my external IP address and create/update a corresponding DNS record on the www subdomain:
 
-    python3 porkbun-ddns.py example.com www
-
-#### IP Caching
-
-To only create/update DNS records if your IP address has actually changed, 
+    python3 porkbun-ddns.py --subdomain www example.com
 
 #### Wildcard
 Detect my external IP address and create/update a corresponding wildcard DNS record on the specified domain. 
@@ -34,6 +30,12 @@ Detect my external IP address and create/update a corresponding wildcard DNS rec
     python3 porkbun-ddns.py --wildcard example.com -s
 
 Please note that wildcard records do not apply to the root domain and you'll need to create a root domain record in addition to the wildcard record if you wish to match all incoming DNS requests for the domain.
+
+#### IP Caching
+
+To only create/update DNS records if your IP address has actually changed, supply that `--cache-ip` argument:
+
+    python3 porkbun-ddns.py --cache-ip example.com
 
 #### Manual IP Address override
 Create/update a corresponding wildcard DNS record on the root domain, but instead of detecting the IP address, use this manually-specified IP address instead.
@@ -58,6 +60,7 @@ Save the file and install it by hitting escape, then typing
 
     :wq
 The command will now run at startup. You can create additional crontab commands to run the command once a day, or more frequently if your IP address frequently changes.
+
 ### Windows
 An easy way to run at startup is to create a .bat or .cmd file which executes the dynamic DNS command(s), and then placing that file into Windows's startup folder. A sample .bat file might look like this (Python requires forward slashes, not backslashes in the Windows environment):
 ```
