@@ -1,6 +1,6 @@
 # Improved Porkbun DDNS Python Script
 
-Fork of Porkbun's deprecated Python DDNS Client which only re-creates the DNS record if your IP address has actually changed.
+Updated fork of Porkbun's deprecated Python Dynamic DNS Client which can cache your IP address and only re-create DNS records if it has actually changed.
 
 Installation: 
 
