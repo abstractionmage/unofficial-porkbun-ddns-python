@@ -80,9 +80,17 @@ def createRecord(rootDomain, subDomain, myIP):
 	createObj=apiConfig.copy()
 	createObj.update({'name': subDomain, 'type': 'A', 'content': myIP, 'ttl': 300})
 	print("Creating record: " + ((subDomain + ".") if subDomain else "") + rootDomain + " with answer of " + myIP)
-	create = json.loads(requests.post(apiConfig["endpoint"] + '/dns/create/'+ rootDomain, data = json.dumps(createObj)).text)
-	return(create)
-
+	for attempt in range(3):
+		try:
+			response = requests.post(apiConfig["endpoint"] + '/dns/create/'+ rootDomain, data = json.dumps(createObj))
+			response.raise_for_status()
+			create = response.json()
+			return(create)
+		except (requests.exceptions.RequestException, json.decoder.JSONDecodeError) as e:
+			print(f"Attempt {attempt + 1} failed: {e}")
+			time.sleep(3)
+	print("Failed to create record after 3 attempts.")
+	sys.exit()
 
 apiConfig = json.load(open(os.path.join(scriptPath, "config.json")))
 myIP = arguments.ip if arguments.ip else getMyIP()
