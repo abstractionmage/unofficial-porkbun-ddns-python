@@ -4,6 +4,7 @@ import sys
 import requests
 import socket
 import argparse
+import time
 
 parser = argparse.ArgumentParser(
                     prog='Improved Porkbun DDNS Python Script',
@@ -22,20 +23,34 @@ cachedIpFilePath = os.path.join(scriptPath, "ip.txt")
 
 
 def getRecords(domain): #grab all the records so we know which ones to delete to make room for our record. Also checks to make sure we've got the right domain
-	allRecords=json.loads(requests.post(apiConfig["endpoint"] + '/dns/retrieve/' + domain, data = json.dumps(apiConfig)).text)
-	if allRecords["status"]=="ERROR":
-		print('Error getting domain. Check to make sure you specified the correct domain, and that API access has been switched on for this domain.');
-		sys.exit();
-	return(allRecords)
+	for attempt in range(3):
+		try:
+			response = requests.post(apiConfig["endpoint"] + '/dns/retrieve/' + domain, data=json.dumps(apiConfig))
+			response.raise_for_status()
+			allRecords = response.json()
+			if allRecords["status"] == "ERROR":
+				print('Error getting domain. Check to make sure you specified the correct domain, and that API access has been switched on for this domain.')
+				sys.exit()
+			return allRecords
+		except (requests.exceptions.RequestException, json.decoder.JSONDecodeError) as e:
+			print(f"Attempt {attempt + 1} failed: {e}")
+			time.sleep(3)
+	print("Failed to retrieve records after 3 attempts.")
+	sys.exit()
 
-	
+
 def getMyIP():
-	ping = json.loads(requests.post(apiConfig["endpoint"] + '/ping/', data = json.dumps(apiConfig)).text)
-	try:
-		ip = ping["yourIp"]
-		return ip
-	except KeyError:
-		raise Exception(str(ping))
+	for attempt in range(3):
+		try:
+			response = requests.post(apiConfig["endpoint"] + '/ping/', data=json.dumps(apiConfig))
+			response.raise_for_status()
+			ping = response.json()
+			return ping["yourIp"]
+		except (requests.exceptions.RequestException, json.decoder.JSONDecodeError) as e:
+			print(f"Attempt {attempt + 1} failed: {e}")
+			time.sleep(3)
+	print("Failed to get IP after 3 attempts.")
+	sys.exit()
 
 
 def cacheMyIP(myIP):
@@ -52,7 +67,7 @@ def hasMyIpChanged(myIP) -> bool:
 		return myIP != previousIp
 	except FileNotFoundError:
 		return True
-	
+
 
 def deleteRecords(rootDomain):
 	for record in getRecords(rootDomain)["records"]:
@@ -65,9 +80,17 @@ def createRecord(rootDomain, subDomain, myIP):
 	createObj=apiConfig.copy()
 	createObj.update({'name': subDomain, 'type': 'A', 'content': myIP, 'ttl': 300})
 	print("Creating record: " + ((subDomain + ".") if subDomain else "") + rootDomain + " with answer of " + myIP)
-	create = json.loads(requests.post(apiConfig["endpoint"] + '/dns/create/'+ rootDomain, data = json.dumps(createObj)).text)
-	return(create)
-
+	for attempt in range(3):
+		try:
+			response = requests.post(apiConfig["endpoint"] + '/dns/create/'+ rootDomain, data = json.dumps(createObj))
+			response.raise_for_status()
+			create = response.json()
+			return(create)
+		except (requests.exceptions.RequestException, json.decoder.JSONDecodeError) as e:
+			print(f"Attempt {attempt + 1} failed: {e}")
+			time.sleep(3)
+	print("Failed to create record after 3 attempts.")
+	sys.exit()
 
 apiConfig = json.load(open(os.path.join(scriptPath, "config.json")))
 myIP = arguments.ip if arguments.ip else getMyIP()
