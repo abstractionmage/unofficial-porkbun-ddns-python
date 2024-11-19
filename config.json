@@ -1,5 +1,5 @@
 { 
-    "endpoint":"https://porkbun.com/api/json/v3",
+    "endpoint":"https://api.porkbun.com/api/json/v3",
     "apikey": "",
     "secretapikey": ""
 }
