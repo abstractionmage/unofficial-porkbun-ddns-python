@@ -129,6 +129,12 @@ if __name__ == "__main__":
         print(f"Your IP address hasn't changed, it's still {myIP}. No need to update its DNS records.")
     else:
         run_function_until_it_succeeds(deleteRecords, [rootDomain], 3, 3.0)
+        # also create an entry for the root domain in a subdomain is present
+        if len(subdomain) > 0:
+            record_root = run_function_until_it_succeeds(createRecord, [rootDomain, "", myIP], 3, 3.0)
+            print(str(record_root))
+            if not record_root["status"] == "SUCCESS":
+                exit(0)
         record = run_function_until_it_succeeds(createRecord, [rootDomain, subdomain, myIP], 3, 3.0)
         if record["status"] == "SUCCESS":
             cacheMyIP(myIP)
